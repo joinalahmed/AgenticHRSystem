@@ -1,0 +1,99 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Resume Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        async function analyzeResumes() {
+            const query = document.getElementById('query').value;
+            const resultDiv = document.getElementById('result');
+            const citationsDiv = document.getElementById('citations');
+            const loadingDiv = document.getElementById('loading');
+            
+            resultDiv.innerHTML = '';
+            citationsDiv.innerHTML = '';
+            loadingDiv.classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: query }),
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = marked.parse(data.analysis);
+                
+                if (data.citations && data.citations.length > 0) {
+                    citationsDiv.innerHTML = '<h3 class="text-lg font-semibold mt-4">Citations:</h3>';
+                    data.citations.forEach(citation => {
+                        citationsDiv.innerHTML += `
+                            <div class="mt-2">
+                                <p class="font-medium">From ${citation.file}:</p>
+                                <p class="italic ml-4">"${citation.quote}"</p>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="text-red-600">Error: ${error.message}</div>`;
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">HR Resume Search</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="mb-4">
+                <label for="query" class="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your question about the candidates:
+                </label>
+                <textarea
+                    id="query"
+                    class="w-full p-2 border rounded-md"
+                    rows="3"
+                    placeholder="e.g., Compare both candidates' experience with ML systems deployment..."
+                ></textarea>
+            </div>
+            
+            <button
+                onclick="analyzeResumes()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+                Analyze Resumes
+            </button>
+            
+            <div id="loading" class="hidden mt-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p class="text-center mt-2">Analyzing resumes...</p>
+            </div>
+            
+            <div class="mt-8">
+                <div id="result" class="prose max-w-none"></div>
+                <div id="citations" class="mt-4"></div>
+            </div>
+        </div>
+        
+        <div class="mt-8">
+            <h2 class="text-xl font-semibold mb-4">Sample Questions:</h2>
+            <ul class="list-disc ml-6 space-y-2">
+                <li>"Create a technical competency matrix for both candidates focusing on: AI/ML expertise, cloud infrastructure, and leadership."</li>
+                <li>"What are the most recent and relevant projects each candidate has led? Include team sizes and outcomes."</li>
+                <li>"Compare both candidates' experience with ML systems deployment and provide evidence of successful implementations."</li>
+                <li>"Create a final recommendation table with: top 3 strengths, growth areas, and risk factors for each candidate."</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
