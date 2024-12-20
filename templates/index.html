@@ -1,99 +1,798 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HR Resume Search</title>
+    <title>ContosoStaffAssist - Talent Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script>
-        async function analyzeResumes() {
-            const query = document.getElementById('query').value;
-            const resultDiv = document.getElementById('result');
-            const citationsDiv = document.getElementById('citations');
-            const loadingDiv = document.getElementById('loading');
-            
-            resultDiv.innerHTML = '';
-            citationsDiv.innerHTML = '';
-            loadingDiv.classList.remove('hidden');
-            
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ text: query }),
-                });
-                
-                const data = await response.json();
-                
-                resultDiv.innerHTML = marked.parse(data.analysis);
-                
-                if (data.citations && data.citations.length > 0) {
-                    citationsDiv.innerHTML = '<h3 class="text-lg font-semibold mt-4">Citations:</h3>';
-                    data.citations.forEach(citation => {
-                        citationsDiv.innerHTML += `
-                            <div class="mt-2">
-                                <p class="font-medium">From ${citation.file}:</p>
-                                <p class="italic ml-4">"${citation.quote}"</p>
-                            </div>
-                        `;
-                    });
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `<div class="text-red-600">Error: ${error.message}</div>`;
-            } finally {
-                loadingDiv.classList.add('hidden');
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Variables */
+        :root {
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --error: #ef4444;
+            --surface: #ffffff;
+            --background: #f8fafc;
+            --border: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+        }
+
+        /* Base styles */
+        body { 
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: var(--surface);
+            z-index: 40;
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: var(--surface);
+            z-index: 40;
+            border-top: 1px solid var(--border);
+        }
+        /* Layout */
+        .main-container {
+            position: fixed;
+            top: 80px;
+            bottom: 56px;
+            width: 100%;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* History Section */
+        .history-section {
+            width: 20%;
+            height: 100%;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        .history-item {
+            width: calc(100% - 24px);
+            margin: 8px 12px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+
+        .history-item:hover {
+            background: #f0f7ff;
+            border-color: var(--primary-light);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .history-item.active {
+            background: #f0f7ff;
+            border-color: var(--primary);
+        }
+
+        /* Chat Section */
+        .chat-section {
+            width: 60%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            background: var(--background);
+            position: relative;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+
+        .message-bubble.ai {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+        }
+
+        .message-bubble.user {
+            background: #f0f7ff;
+            border: 1px solid #bfdbfe;
+            margin-left: auto;
+        }
+
+        /* Settings Section */
+        .settings-section {
+            width: 20%;
+            height: 100%;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        /* File List */
+        .file-list {
+            height: 272px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .file-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--background);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .file-item:hover {
+            background: #f0f7ff;
+            border-color: var(--primary-light);
+        }
+
+        /* Search Input */
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px 8px 36px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-secondary);
+        }
+
+        /* Loading Indicator */
+        .loading-overlay {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 16px;
+            background: var(--surface);
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+            animation: typing 1s infinite ease-in-out;
+        }
+
+        @keyframes typing {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; }
+        }
+
+        /* Example Buttons */
+        .example-button {
+            width: 100%;
+            padding: 12px 16px;
+            text-align: left;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--primary);
+            font-size: 14px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .example-button:hover {
+            background: #f0f7ff;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        /* Chat Input */
+        .chat-input {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-textarea {
+            width: 100%;
+            resize: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            min-height: 44px;
+            max-height: 200px;
+        }
+
+        .input-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Animations */
+        .message-appear {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
-    </script>
+    </style>
 </head>
-<body class="bg-gray-50">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8">HR Resume Search</h1>
-        
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="mb-4">
-                <label for="query" class="block text-sm font-medium text-gray-700 mb-2">
-                    Enter your question about the candidates:
-                </label>
-                <textarea
-                    id="query"
-                    class="w-full p-2 border rounded-md"
-                    rows="3"
-                    placeholder="e.g., Compare both candidates' experience with ML systems deployment..."
-                ></textarea>
+<body>
+    <div class="header">
+        <div class="px-6 h-full flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-2xl font-bold text-gray-900">ContosoStaffAssist</h1>
+                <span class="px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 font-medium">
+                    Talent Intelligence
+                </span>
             </div>
-            
-            <button
-                onclick="analyzeResumes()"
-                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-                Analyze Resumes
-            </button>
-            
-            <div id="loading" class="hidden mt-4">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p class="text-center mt-2">Analyzing resumes...</p>
+            <div class="flex items-center space-x-6">
+                <span id="fileStatus" class="text-sm text-gray-500">No documents selected</span>
             </div>
-            
-            <div class="mt-8">
-                <div id="result" class="prose max-w-none"></div>
-                <div id="citations" class="mt-4"></div>
-            </div>
-        </div>
-        
-        <div class="mt-8">
-            <h2 class="text-xl font-semibold mb-4">Sample Questions:</h2>
-            <ul class="list-disc ml-6 space-y-2">
-                <li>"Create a technical competency matrix for both candidates focusing on: AI/ML expertise, cloud infrastructure, and leadership."</li>
-                <li>"What are the most recent and relevant projects each candidate has led? Include team sizes and outcomes."</li>
-                <li>"Compare both candidates' experience with ML systems deployment and provide evidence of successful implementations."</li>
-                <li>"Create a final recommendation table with: top 3 strengths, growth areas, and risk factors for each candidate."</li>
-            </ul>
         </div>
     </div>
+
+    <div class="main-container">
+        <!-- History Section -->
+        <div class="history-section" id="historyPanel">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900">Conversation History</h2>
+                    <div class="space-x-4">
+                        <button onclick="exportHistory()" class="text-sm text-blue-600 hover:text-blue-700">Save</button>
+                        <button onclick="clearHistory()" class="text-sm text-red-600 hover:text-red-700">Clear</button>
+                    </div>
+                </div>
+            </div>
+            <div id="historyList" class="p-4 space-y-2">
+                <!-- History items populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div class="chat-section">
+            <div class="chat-messages">
+                <div id="messages" class="space-y-4">
+                    <!-- Messages populated by JavaScript -->
+                </div>
+                <div id="loadingOverlay" class="loading-overlay hidden">
+                    <div class="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input">
+                <div class="flex items-center space-x-3">
+                    <textarea
+                        id="query"
+                        class="input-textarea"
+                        rows="1"
+                        placeholder="Analyze candidates' skills, experience, or qualifications..."
+                    ></textarea>
+                    <button onclick="analyzeResumes()" 
+                            class="flex-shrink-0 p-3 text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors">
+                        <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="settings-section" id="settingsPanel">
+            <!-- Resumes -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Candidate Resumes</h3>
+                </div>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search candidates..."
+                           oninput="filterFiles('resume', this.value)">
+                </div>
+                <div class="file-list" id="resumesList">
+                    <!-- Resume list populated by JavaScript -->
+                </div>
+                <button onclick="toggleUpload('resume')" 
+                        class="mt-4 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-2">
+                    <span>Upload Resume</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Jobs -->
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Position Requirements</h3>
+                </div>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search positions..."
+                           oninput="filterFiles('job', this.value)">
+                </div>
+                <div class="file-list" id="jobsList">
+                    <!-- Job list populated by JavaScript -->
+                </div>
+                <button onclick="toggleUpload('job')" 
+                        class="mt-4 text-sm text-green-600 hover:text-green-700 flex items-center gap-2">
+                    <span>Upload Job Description</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="px-6 h-full flex items-center justify-between">
+            <p class="text-sm text-gray-600">© 2024 Microsoft AI Global Black Belt - India, Asia</p>
+        </div>
+    </div>
+
+    <script>
+    // Global state
+let chatHistory = [];
+const HISTORY_STORAGE_KEY = 'chat_history';
+
+// UI Helper Functions
+function setQuery(text) {
+    const query = document.getElementById('query');
+    query.value = text;
+    query.focus();
+    adjustTextareaHeight(query);
+}
+
+function adjustTextareaHeight(element) {
+    element.style.height = 'auto';
+    element.style.height = (element.scrollHeight) + 'px';
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+// Panel Toggle Functions
+function toggleHistory() {
+    const panel = document.getElementById('historyPanel');
+    panel.classList.toggle('visible');
+}
+
+function toggleSettings() {
+    const panel = document.getElementById('settingsPanel');
+    panel.classList.toggle('visible');
+}
+
+function toggleUpload(type) {
+    const uploadSection = document.getElementById(`${type}Upload`);
+    const toggleButton = uploadSection.previousElementSibling;
+    const toggleIcon = toggleButton.querySelector('svg');
+    
+    uploadSection.classList.toggle('visible');
+    toggleIcon.classList.toggle('rotate-45');
+}
+
+// History Management
+function loadHistory() {
+    const saved = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (saved) {
+        chatHistory = JSON.parse(saved);
+        updateHistoryList();
+    }
+}
+
+function saveHistory() {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(chatHistory));
+    updateHistoryList();
+}
+
+function clearHistory() {
+    if (confirm('Are you sure you want to clear all chat history?')) {
+        chatHistory = [];
+        localStorage.removeItem(HISTORY_STORAGE_KEY);
+        updateHistoryList();
+    }
+}
+
+function exportHistory() {
+    const historyData = JSON.stringify(chatHistory, null, 2);
+    const blob = new Blob([historyData], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'chat-history.json';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function updateHistoryList() {
+    const historyList = document.getElementById('historyList');
+    historyList.innerHTML = chatHistory.map((chat, index) => `
+        <button onclick="loadChat(${index})" 
+                class="history-item ${chat.active ? 'active' : ''}">
+            <p class="text-sm font-medium text-gray-900 truncate">${chat.title}</p>
+            <p class="text-xs text-gray-500">${new Date(chat.timestamp).toLocaleString()}</p>
+        </button>
+    `).join('');
+}
+
+function loadChat(index) {
+    const chat = chatHistory[index];
+    const messagesDiv = document.getElementById('messages');
+    
+    messagesDiv.innerHTML = '';
+    chat.messages.forEach(msg => {
+        addMessage(msg.content, msg.isUser, false);
+    });
+
+    chatHistory.forEach((c, i) => c.active = i === index);
+    updateHistoryList();
+}
+
+// Message Management
+function addMessage(content, isUser = false, saveToHistory = true) {
+    const messagesDiv = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message-container', 'message-appear');
+    
+    messageDiv.innerHTML = `
+        <div class="flex items-start ${isUser ? 'justify-end' : ''}">
+            <div class="flex-shrink-0 ${isUser ? 'order-2 ml-4' : 'mr-4'}">
+                <div class="w-8 h-8 rounded-full ${isUser ? 'bg-green-600' : 'bg-blue-600'} flex items-center justify-center">
+                    <span class="text-white text-sm font-medium">${isUser ? 'You' : 'AI'}</span>
+                </div>
+            </div>
+            <div class="flex-1 ${isUser ? 'text-right' : ''}">
+                <div class="message-bubble ${isUser ? 'user' : 'ai'}">
+                    ${isUser ? content : marked.parse(content)}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    messagesDiv.appendChild(messageDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    if (saveToHistory) {
+        if (!chatHistory.length || chatHistory[chatHistory.length - 1].complete) {
+            chatHistory.push({
+                title: content.slice(0, 50) + '...',
+                timestamp: Date.now(),
+                messages: [],
+                complete: false,
+                active: true
+            });
+        }
+
+        chatHistory[chatHistory.length - 1].messages.push({
+            content,
+            isUser,
+            timestamp: Date.now()
+        });
+
+        if (!isUser) {
+            chatHistory[chatHistory.length - 1].complete = true;
+        }
+
+        saveHistory();
+    }
+}
+
+// File Management
+async function loadFiles() {
+    try {
+        const response = await fetch('/files');
+        const data = await response.json();
+        
+        updateFileList('resumesList', data.resumes, 'resume');
+        updateFileList('jobsList', data.jobs, 'job');
+        
+        updateFileStatus();
+    } catch (error) {
+        console.error('Failed to load files:', error);
+    }
+}
+
+function updateFileList(containerId, files, type) {
+    const container = document.getElementById(containerId);
+    const isJob = type === 'job';
+    const colorClass = isJob ? 'green' : 'blue';
+    
+    container.innerHTML = files.map(filename => `
+        <div class="file-item group">
+            <div class="checkbox-wrapper">
+                <input type="checkbox" 
+                       id="${type}_${filename}" 
+                       class="${type}-checkbox"
+                       onchange="updateFileStatus()"/>
+                <label for="${type}_${filename}">
+                    ${filename}
+                </label>
+            </div>
+            <button onclick="downloadFile('${filename}', '${type}')" 
+                    class="icon-button opacity-0 group-hover:opacity-100">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+function updateFileStatus() {
+    const resumeCount = document.querySelectorAll('.resume-checkbox:checked').length;
+    const jobCount = document.querySelectorAll('.job-checkbox:checked').length;
+    const statusEl = document.getElementById('fileStatus');
+    
+    if (resumeCount > 0 || jobCount > 0) {
+        statusEl.textContent = `${resumeCount} resume${resumeCount !== 1 ? 's' : ''}, ${jobCount} job${jobCount !== 1 ? 's' : ''} selected`;
+        statusEl.classList.remove('text-gray-500');
+        statusEl.classList.add('text-blue-600', 'font-medium');
+    } else {
+        statusEl.textContent = 'No files selected';
+        statusEl.classList.remove('text-blue-600', 'font-medium');
+        statusEl.classList.add('text-gray-500');
+    }
+}
+
+// File Upload Handlers
+async function handleFileUpload(e) {
+    e.preventDefault();
+    const formData = new FormData();
+    const isJob = e.target.id === 'jobForm';
+    const fileInput = document.getElementById(isJob ? 'jobInput' : 'resumeInput');
+    
+    for (let file of fileInput.files) {
+        formData.append('file', file);
+    }
+    
+    try {
+        const response = await fetch(`/upload/${isJob ? 'job' : 'resume'}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Upload failed');
+        
+        await loadFiles();
+        fileInput.value = '';
+        toggleUpload(isJob ? 'job' : 'resume');
+    } catch (error) {
+        alert('Upload failed: ' + error.message);
+    }
+}
+
+// Analysis Function
+async function analyzeResumes() {
+    const query = document.getElementById('query');
+    const queryText = query.value.trim();
+    
+    if (!queryText) return;
+
+    const selectedResumes = [...document.querySelectorAll('.resume-checkbox:checked')]
+        .map(cb => cb.id.replace('resume_', ''));
+    const selectedJobs = [...document.querySelectorAll('.job-checkbox:checked')]
+        .map(cb => cb.id.replace('job_', ''));
+    
+    if (selectedResumes.length === 0) {
+        addMessage("Please select at least one resume in the settings panel before asking questions.");
+        return;
+    }
+    
+    addMessage(queryText, true);
+    query.value = '';
+    query.style.height = 'auto';
+    
+    showLoading();
+    
+    try {
+        const response = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                text: queryText,
+                resumes: selectedResumes,
+                jobs: selectedJobs
+            }),
+        });
+        
+        if (!response.ok) throw new Error('Analysis failed');
+        
+        const data = await response.json();
+        let responseText = data.analysis;
+        
+        if (data.citations && data.citations.length > 0) {
+            responseText += '\n\n**Supporting Evidence:**\n';
+            data.citations.forEach(citation => {
+                responseText += `\n> From ${citation.file}:\n> "${citation.quote}"\n`;
+            });
+        }
+        
+        addMessage(responseText);
+        
+    } catch (error) {
+        addMessage(`Error: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Welcome Message
+function addWelcomeMessage() {
+    const messagesDiv = document.getElementById('messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message-container', 'message-appear');
+    
+    messageDiv.innerHTML = `
+        <div class="flex items-start">
+            <div class="flex-shrink-0 mr-4">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span class="text-white text-sm font-medium">AI</span>
+                </div>
+            </div>
+            <div class="flex-1">
+                <div class="message-bubble ai">
+                    <p class="mb-4">Hello! I can help you analyze resumes and job descriptions. Here are some example questions:</p>
+                    <div class="space-y-2">
+                        <button onclick="setQuery(this.textContent)" class="example-button">Compare candidates' technical skills and experience</button>
+                        <button onclick="setQuery(this.textContent)" class="example-button">Evaluate leadership capabilities and achievements</button>
+                        <button onclick="setQuery(this.textContent)" class="example-button">Analyze project management experience</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    messagesDiv.appendChild(messageDiv);
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadHistory();
+    loadFiles();
+    addWelcomeMessage();
+
+    // Textarea auto-resize
+    const query = document.getElementById('query');
+    query.addEventListener('input', function() {
+        adjustTextareaHeight(this);
+    });
+
+    // Enter key handler
+    query.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            analyzeResumes();
+        }
+    });
+
+    // File upload form handlers
+    document.getElementById('resumeForm')?.addEventListener('submit', handleFileUpload);
+    document.getElementById('jobForm')?.addEventListener('submit', handleFileUpload);
+
+    // Close panels on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const history = document.getElementById('historyPanel');
+            const settings = document.getElementById('settingsPanel');
+            
+            if (history.classList.contains('visible')) {
+                toggleHistory();
+            }
+            
+            if (settings.classList.contains('visible')) {
+                toggleSettings();
+            }
+        }
+    });
+
+    // Close panels when clicking outside
+    document.addEventListener('click', (e) => {
+        const history = document.getElementById('historyPanel');
+        const settings = document.getElementById('settingsPanel');
+        
+        if (!history.contains(e.target) && 
+            !e.target.closest('[onclick*="toggleHistory"]')) {
+            history.classList.remove('visible');
+        }
+        
+        if (!settings.contains(e.target) && 
+            !e.target.closest('[onclick*="toggleSettings"]')) {
+            settings.classList.remove('visible');
+        }
+    });
+});
+    </script>
 </body>
 </html>
