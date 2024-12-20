@@ -1,8 +1,15 @@
-# HR Resume Search Using Azure OpenAI Assistant API
+# StaffAssist
+
+## TL;DR
+StaffAssist is an AI-powered HR tool that helps you analyze resumes using natural language questions. Just upload resumes, ask questions in plain English (like "Compare candidates' leadership experience"), and get detailed insights backed by evidence from the resumes. Built with Azure OpenAI and FastAPI.
+
+## 📸 Screenshots
+![Application Interface](assets/images/app.png)
+*Main interface showing resume analysis in action*
 
 ## 🚀 Overview
 
-HR Resume Search is a powerful web application that leverages Azure OpenAI's Assistant API to analyze resumes and provide detailed candidate evaluations. The application enables HR professionals and recruiters to perform in-depth analysis of candidate profiles using natural language queries.
+StaffAssist is a powerful web application that leverages Azure OpenAI's Assistant API to analyze resumes and provide detailed candidate evaluations. The application enables HR professionals and recruiters to perform in-depth analysis of candidate profiles using natural language queries.
 
 ## ✨ Features
 
@@ -33,8 +40,8 @@ HR Resume Search is a powerful web application that leverages Azure OpenAI's Ass
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/yourusername/hr-resume-search.git
-   cd hr-resume-search
+   git clone https://github.com/yourusername/staffassist.git
+   cd staffassist
    ```
 
 2. **Create Virtual Environment**
@@ -104,7 +111,7 @@ Here are some example queries you can try:
 ## 📁 Project Structure
 
 ```
-hr-resume-search/
+staffassist/
 ├── main.py                 # Main application file
 ├── requirements.txt        # Project dependencies
 ├── .env                   # Environment variables
